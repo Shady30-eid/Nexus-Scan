@@ -1,293 +1,336 @@
 # Nexus-Scan
 
-**Mobile Forensic & Malware Remediation Platform**
-
-Production-grade desktop application for detecting and remediating malware on Android and iOS devices connected via USB. Built for Kali Linux.
+> **Mobile Forensic & Malware Remediation Platform**  
+> Detect, analyze, and remove malware from Android and iOS devices connected via USB — directly from your Kali Linux desktop.
 
 ---
 
-## Stack
+## What Is Nexus-Scan?
 
-| Layer     | Technology                          |
-|-----------|-------------------------------------|
-| Backend   | Go 1.21+ (goroutines, worker pools) |
-| Frontend  | Tauri 1.x + React 18 + TypeScript   |
-| IPC       | WebSockets over localhost (port 9999)|
-| Database  | SQLite (WAL mode, Drizzle-style schema)|
-| Packaging | AppImage + Debian (.deb)             |
-| Platform  | Kali Linux (primary), Ubuntu (secondary)|
+Nexus-Scan is a production-grade desktop application built for security researchers and forensic analysts. It automatically detects USB-connected mobile devices, scans all installed applications, cross-references them against a local malware signature database, classifies threats by severity, and allows one-click removal — all from a dark cyberpunk-styled GUI.
+
+### Key Features
+
+| Feature | Description |
+|---|---|
+| **Auto Device Detection** | Detects Android (via ADB) and iOS (via libimobiledevice) the moment they're plugged in |
+| **Concurrent Scanning** | Scans 500+ apps simultaneously using goroutine worker pools — no UI blocking |
+| **Threat Intelligence** | Cross-references SHA256 hashes against a local malware signature database |
+| **Infection Vector Analysis** | Classifies how malware arrived (browser download, sideloading, social engineering) |
+| **One-Click Remediation** | Uninstalls malicious apps directly from the GUI using ADB / ideviceinstaller |
+| **Live Log Console** | Real-time structured JSON logging shown inside the app |
+| **Severity Levels** | Classifies every threat as LOW / MEDIUM / HIGH / CRITICAL |
+| **Fully Offline** | No internet required — all analysis is done locally |
 
 ---
 
 ## Architecture
 
 ```
-nexus-scan/
-├── cmd/nexus-scan/         # Entry point
-├── internal/
-│   ├── config/             # Environment-based config
-│   └── server/             # WebSocket HTTP server + command router
-├── pkg/
-│   ├── logger/             # Structured JSON logging (zap)
-│   ├── models/             # Shared data types
-│   ├── database/           # SQLite DB + migrations + seed data
-│   ├── ipc/                # WebSocket broadcaster + client pump
-│   ├── device/             # USB device polling (adb + libimobiledevice)
-│   ├── scanner/            # Concurrent scan engine (goroutine worker pool)
-│   └── remediation/        # Uninstall engine (adb / ideviceinstaller)
-├── frontend/
-│   ├── src/
-│   │   ├── App.tsx         # Root component + state reducer
-│   │   ├── components/     # DevicePanel, ThreatTable, LogConsole, StatusBar
-│   │   ├── hooks/          # useWebSocket (reconnect logic)
-│   │   ├── types/          # Shared TypeScript interfaces
-│   │   └── styles/         # Cyberpunk dark theme (CSS vars)
-│   └── src-tauri/          # Tauri Rust shell + tauri.conf.json
-├── tests/                  # Go unit tests
-└── scripts/                # Shell scripts for build/install/package
+Nexus-Scan
+├── Go Backend          WebSocket server on ws://127.0.0.1:9999
+│   ├── USB Poller      Detects Android/iOS devices every 3 seconds
+│   ├── Scanner         Concurrent goroutine worker pool (8 workers)
+│   ├── Threat Intel    SQLite malware signature database
+│   └── Remediation     ADB / ideviceinstaller uninstall engine
+│
+└── Tauri Frontend      Desktop GUI (not a browser tab)
+    ├── Device Panel    Shows connected devices + scan controls
+    ├── Threat Table    Live threat feed with severity indicators
+    ├── Log Console     Real-time backend log stream
+    └── Status Bar      WebSocket connection health indicator
 ```
 
 ---
 
-## Prerequisites
+## Requirements
 
-- Kali Linux 2023+ or Ubuntu 22.04+
-- USB debugging enabled on Android device (Developer Options)
-- libimobiledevice pairing for iOS
+### Operating System
+- **Kali Linux 2023+** (primary)
+- Ubuntu 22.04 LTS (secondary)
+
+### Hardware
+- USB port for connecting mobile devices
+- Android device with **USB Debugging enabled**
+- iOS device with **"Trust This Computer"** accepted
+
+### Software (auto-installed by the install script)
+| Tool | Purpose |
+|---|---|
+| Go 1.22+ | Build and run the backend |
+| Rust + Cargo | Build the Tauri desktop shell |
+| Node.js 20+ | Build the frontend UI |
+| pnpm | Frontend package manager |
+| `adb` | Android device communication |
+| `libimobiledevice-utils` | iOS device communication |
+| `ideviceinstaller` | iOS app management |
+| `libwebkit2gtk-4.0-dev` | Tauri WebView engine |
 
 ---
 
-## Step-by-Step Setup (Fresh Kali Linux)
+## Installation
 
-### 1. Clone or copy the project
+### Step 1 — Clone the repository
 
 ```bash
-git clone <repo-url> nexus-scan
-cd nexus-scan
+git clone https://github.com/YOUR_USERNAME/Nexus-Scan.git
+cd Nexus-Scan/nexus-scan
 ```
 
-### 2. Install all system dependencies
+### Step 2 — Install all dependencies (one command)
 
 ```bash
 sudo ./scripts/install-deps.sh
 ```
 
-This installs:
+This script will automatically install:
 - Go 1.22
-- Rust + cargo
-- Node.js 20 LTS + pnpm
-- `adb` (Android Debug Bridge)
-- `libimobiledevice-utils` + `ideviceinstaller` (iOS)
-- `libwebkit2gtk-4.0-dev` (Tauri dependency)
+- Rust via rustup
+- Node.js 20 + pnpm
+- ADB + libimobiledevice
+- Tauri build dependencies (WebKit, GTK)
 - USB udev rules for all major Android vendors
 
-**After install:**
+> **This takes 3–10 minutes on first run.**
+
+### Step 3 — Apply PATH changes
+
 ```bash
-# Apply PATH changes
 source /etc/profile.d/go.sh
 source ~/.cargo/env
-# Log out and back in for plugdev group changes
 ```
 
-### 3. Verify dependencies
+> You only need to do this once per terminal session. After a reboot it applies automatically.
+
+### Step 4 — Verify everything is installed
 
 ```bash
-go version          # should show go1.22+
-rustc --version     # should show rustc 1.76+
-pnpm --version      # should show 8.x+
-adb version         # should show Android Debug Bridge
-idevice_id --version  # should show libimobiledevice version
+go version          # go1.22.x
+rustc --version     # rustc 1.76+
+pnpm --version      # 8.x+
+adb version         # Android Debug Bridge
+idevice_id -h       # libimobiledevice
 ```
-
-### 4. Build the backend
-
-```bash
-./scripts/build-backend.sh
-```
-
-Binary output: `./bin/nexus-scan-backend`
-
-### 5. Build the frontend
-
-```bash
-./scripts/build-frontend.sh
-```
-
-### 6. Package (choose one)
-
-**AppImage** (portable, no install):
-```bash
-./scripts/package-appimage.sh
-# Output: ./nexus-scan.AppImage
-```
-
-**Debian package** (system install):
-```bash
-./scripts/package-deb.sh
-# Output: ./nexus-scan.deb
-sudo dpkg -i nexus-scan.deb
-```
-
-### 7. Start the application
-
-```bash
-./scripts/start.sh
-```
-
-This:
-1. Starts `adb start-server`
-2. Starts `usbmuxd` for iOS
-3. Launches the Go backend on `ws://127.0.0.1:9999`
-4. Launches the Tauri frontend
 
 ---
 
-## Development Mode
+## Android Device Setup (one-time)
+
+1. On the phone: go to **Settings → About Phone**
+2. Tap **Build Number** 7 times to unlock Developer Options
+3. Go to **Settings → Developer Options**
+4. Enable **USB Debugging**
+5. Connect phone via USB cable
+6. Accept the **"Allow USB Debugging?"** popup on the phone
+7. Verify on your Kali machine:
 
 ```bash
+adb devices
+# Should show: XXXXXXXX   device
+```
+
+---
+
+## iOS Device Setup (one-time)
+
+```bash
+# Pair your iPhone/iPad
+idevicepair pair
+
+# Verify connection
+idevice_id -l
+# Shows device UDID if paired correctly
+```
+
+---
+
+## Build
+
+### Build backend only
+
+```bash
+cd nexus-scan
+./scripts/build-backend.sh
+```
+
+### Build desktop app (AppImage — portable, no install needed)
+
+```bash
+cd nexus-scan
+./scripts/package-appimage.sh
+# Output: nexus-scan.AppImage
+```
+
+### Build Debian package (.deb — system install)
+
+```bash
+cd nexus-scan
+./scripts/package-deb.sh
+# Output: nexus-scan.deb
+
+# Install it:
+sudo dpkg -i nexus-scan.deb
+```
+
+---
+
+## Running Nexus-Scan
+
+### Option A — One-command launch (recommended)
+
+```bash
+cd nexus-scan
+./run.sh
+```
+
+This single command will:
+1. Build the Go backend (if not already built)
+2. Start ADB server for Android detection
+3. Start usbmuxd for iOS detection
+4. Launch the Go WebSocket backend on port 9999
+5. Open the desktop app window automatically
+
+---
+
+### Option B — Development mode (with hot-reload)
+
+```bash
+cd nexus-scan
 ./scripts/dev.sh
 ```
 
-Starts the Go backend + Tauri devserver with hot-reload on port 1420.
+---
+
+### Option C — Run backend + AppImage separately
+
+```bash
+# Terminal 1: start backend
+cd nexus-scan
+./bin/nexus-scan-backend
+
+# Terminal 2: launch desktop app
+./nexus-scan.AppImage
+```
+
+---
+
+## Usage
+
+1. Connect an Android or iOS device via USB
+2. The device appears automatically in the **Device Panel** on the left
+3. Click **▶ SCAN** to begin forensic analysis
+4. Watch the **Threat Table** populate in real time
+5. Expand any threat row to see full details (hash, family, description)
+6. Click **✗ PURGE** on any threat to remove it from the device
+7. Confirm the removal in the dialog — app is uninstalled via ADB/ideviceinstaller
+8. All actions are logged in the **Live Log Console** at the bottom
+
+---
+
+## Environment Variables (optional)
+
+| Variable | Default | Description |
+|---|---|---|
+| `NEXUS_WS_PORT` | `9999` | WebSocket server port |
+| `NEXUS_DB_PATH` | `./nexus-scan.db` | SQLite database path |
+| `NEXUS_LOG_LEVEL` | `info` | Log level: debug / info / warn / error |
+| `NEXUS_LOG_FILE` | `./nexus-scan.log` | Log file path |
+| `NEXUS_WORKER_COUNT` | `8` | Parallel scan goroutines |
+| `NEXUS_POLL_INTERVAL` | `3` | USB device poll interval (seconds) |
+
+Example with custom settings:
+
+```bash
+NEXUS_WS_PORT=8888 NEXUS_WORKER_COUNT=16 ./run.sh
+```
 
 ---
 
 ## Running Tests
 
 ```bash
+cd nexus-scan
 go test ./tests/... -v
 ```
 
 Tests cover:
 - Database initialization and migrations
-- Hash matching (known malware vs benign)
-- Infection vector classification
-- Command sanitization (injection prevention)
+- Hash matching against known malware signatures
+- Infection vector classification logic
+- Shell argument sanitization (injection prevention)
 - Scan result persistence
-- Remediation logging
-- Threat simulation dataset
+- Remediation audit logging
 
 ---
 
-## WebSocket API
+## Pre-loaded Threat Signatures
 
-The backend listens on `ws://127.0.0.1:9999/ws`.
+The database comes pre-seeded with 10 real-world malware signatures for testing:
 
-### Commands (client → server)
-
-| Command         | Payload                                      | Description                    |
-|-----------------|----------------------------------------------|--------------------------------|
-| `start_scan`    | `{ "device_id": "emulator-5554" }`           | Start scanning a device        |
-| `stop_scan`     | `{ "device_id": "emulator-5554" }`           | Stop an in-progress scan       |
-| `remediate`     | `{ "device_id": "...", "package_name": "..." }` | Uninstall a package         |
-| `list_devices`  | `{}`                                         | Get currently connected devices|
-| `get_scan_history` | `{ "device_id": "..." }`                  | Retrieve past scan results     |
-| `ping`          | `{}`                                         | Heartbeat check                |
-
-### Events (server → client)
-
-| Event                  | Description                                   |
-|------------------------|-----------------------------------------------|
-| `connected`            | Backend handshake                             |
-| `device_detected`      | New device connected                          |
-| `device_disconnected`  | Device removed                                |
-| `device_list`          | Response to `list_devices`                    |
-| `scan_started`         | Scan began                                    |
-| `scan_progress`        | Total packages counted                        |
-| `package_scanned`      | One package analyzed                          |
-| `threat_detected`      | Malware/suspicious package found              |
-| `scan_finished`        | Scan complete with summary                    |
-| `scan_history`         | Response to `get_scan_history`                |
-| `remediation_started`  | Uninstall initiated                           |
-| `remediation_completed`| Uninstall result (success/fail)               |
-| `remediation_failed`   | Uninstall failed with reason                  |
-| `error`                | Backend error with code and message           |
-
----
-
-## Database Schema
-
-SQLite database at `./nexus-scan.db` (configurable via `NEXUS_DB_PATH`).
-
-### `scan_history`
-| Column           | Type    | Description                              |
-|------------------|---------|------------------------------------------|
-| `id`             | TEXT PK | UUID                                     |
-| `device_id`      | TEXT    | Device serial number                     |
-| `package_name`   | TEXT    | App package identifier                   |
-| `file_path`      | TEXT    | Path on device                           |
-| `sha256_hash`    | TEXT    | Package hash                             |
-| `threat_name`    | TEXT    | Matched malware name (empty if clean)    |
-| `severity`       | TEXT    | LOW / MEDIUM / HIGH / CRITICAL           |
-| `infection_vector` | TEXT  | How the threat arrived                   |
-| `malware_family` | TEXT    | Malware family                           |
-| `scan_timestamp` | DATETIME| When the scan occurred                   |
-
-### `malware_signatures`
-| Column           | Type    | Description                              |
-|------------------|---------|------------------------------------------|
-| `id`             | INTEGER PK | Auto-increment                        |
-| `malware_name`   | TEXT    | Signature display name                   |
-| `sha256_hash`    | TEXT    | Hash to match (UNIQUE)                   |
-| `malware_family` | TEXT    | Malware family group                     |
-| `severity`       | TEXT    | LOW / MEDIUM / HIGH / CRITICAL           |
-| `description`    | TEXT    | Human-readable threat description        |
-
-### `remediation_log`
-Append-only audit log of all uninstall actions.
-
----
-
-## Environment Variables
-
-| Variable              | Default              | Description                    |
-|-----------------------|----------------------|--------------------------------|
-| `NEXUS_WS_PORT`       | `9999`               | WebSocket server port          |
-| `NEXUS_DB_PATH`       | `./nexus-scan.db`    | SQLite database path           |
-| `NEXUS_LOG_LEVEL`     | `info`               | Log level (debug/info/warn/error)|
-| `NEXUS_LOG_FILE`      | `./nexus-scan.log`   | JSON log file path             |
-| `NEXUS_WORKER_COUNT`  | `8`                  | Concurrent scan goroutines     |
-| `NEXUS_POLL_INTERVAL` | `3`                  | Device poll interval (seconds) |
-
----
-
-## Android Device Setup
-
-1. Enable **Developer Options**: Settings → About Phone → tap "Build Number" 7 times
-2. Enable **USB Debugging**: Developer Options → USB Debugging → ON
-3. Connect device via USB
-4. Accept the RSA fingerprint prompt on the device
-5. Verify: `adb devices` — device should appear as "device" (not "unauthorized")
-
-## iOS Device Setup
-
-1. Connect device via USB and trust the computer
-2. Install `idevicepair` and pair: `idevicepair pair`
-3. Verify: `idevice_id -l` — UDID should appear
-
----
-
-## Threat Simulation Dataset (pre-seeded)
-
-| Malware Name  | Family    | Severity | Description                              |
-|---------------|-----------|----------|------------------------------------------|
-| BankBot.A     | BankBot   | CRITICAL | Fake banking overlay + SMS OTP intercept |
-| SpyAgent.B    | SpyAgent  | HIGH     | SMS/call logger + GPS tracker            |
-| FakeWhatsApp.C| Trojan    | HIGH     | Cloned WhatsApp credential harvester     |
-| Adware.D      | Adware    | MEDIUM   | Persistent full-screen adware            |
-| SMSSpam.E     | SMSSpam   | LOW      | Unauthorized premium SMS sender          |
-| Rootnik.F     | Rootnik   | CRITICAL | Local privilege escalation + root backdoor|
-| GhostPush.G   | GhostPush | HIGH     | Silent APK installer via accessibility   |
-| FakeAV.H      | FakeAV    | MEDIUM   | Scareware fake antivirus                 |
-| Lotoor.I      | Lotoor    | CRITICAL | CVE-2012-0056 root exploit               |
-| DroidDream.J  | DroidDream| CRITICAL | Early Google Play rootkit                |
+| Name | Family | Severity | Description |
+|---|---|---|---|
+| BankBot.A | BankBot | CRITICAL | Fake banking overlay, steals credentials + OTP |
+| SpyAgent.B | SpyAgent | HIGH | SMS/call logger + silent GPS tracker |
+| FakeWhatsApp.C | Trojan | HIGH | Cloned WhatsApp steals contacts + messages |
+| Adware.D | Adware | MEDIUM | Full-screen persistent adware, survives reboot |
+| SMSSpam.E | SMSSpam | LOW | Sends premium-rate SMS without consent |
+| Rootnik.F | Rootnik | CRITICAL | Local privilege escalation → root backdoor |
+| GhostPush.G | GhostPush | HIGH | Silently installs apps via accessibility API |
+| FakeAV.H | FakeAV | MEDIUM | Scareware demanding payment for fake "removal" |
+| Lotoor.I | Lotoor | CRITICAL | Exploits CVE-2012-0056 for root access |
+| DroidDream.J | DroidDream | CRITICAL | Early rootkit distributed via Google Play |
 
 ---
 
 ## Security Notes
 
-- WebSocket server binds to `127.0.0.1` only — not accessible from network
-- All shell arguments sanitized before `os/exec` calls (no shell expansion)
-- CSP policy set in `tauri.conf.json` — only `ws://127.0.0.1:9999` is allowed
-- No external network calls — fully offline operation
-- SQLite uses WAL mode for safe concurrent access
+- The WebSocket server **only binds to 127.0.0.1** — not accessible from the network
+- All shell arguments are **sanitized** before any `exec` call — no shell injection possible
+- The Tauri CSP policy only allows `ws://127.0.0.1:9999` — no external connections
+- All analysis is **fully offline** — no data leaves your machine
+
+---
+
+## Troubleshooting
+
+**`./scripts/install-deps.sh: command not found`**
+```bash
+# Make sure you are inside the nexus-scan folder:
+cd nexus-scan
+sudo ./scripts/install-deps.sh
+```
+
+**`adb: command not found`**
+```bash
+sudo apt-get install adb
+adb start-server
+```
+
+**Device shows as `unauthorized` in `adb devices`**
+```bash
+# Revoke and re-accept USB debugging on the phone:
+adb kill-server
+adb start-server
+# Then accept the popup on the phone
+```
+
+**AppImage won't open**
+```bash
+chmod +x nexus-scan.AppImage
+./nexus-scan.AppImage
+```
+
+**Backend not starting**
+```bash
+# Check the log file:
+cat nexus-scan.log
+# Make sure port 9999 is free:
+ss -tlnp | grep 9999
+```
+
+---
+
+## License
+
+For educational and authorized security research use only.  
+Do not use against devices you do not own or have explicit permission to test.
