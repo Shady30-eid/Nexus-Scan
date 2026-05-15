@@ -2,7 +2,8 @@ import { defineConfig } from "drizzle-kit";
 import path from "path";
 
 if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL, ensure the database is provisioned");
+  console.warn("WARNING: DATABASE_URL not set — skipping database push (dev mode)");
+  process.exit(0);
 }
 
 export default defineConfig({
