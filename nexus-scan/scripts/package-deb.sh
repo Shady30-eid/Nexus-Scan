@@ -19,13 +19,13 @@ command -v cargo &>/dev/null || die "cargo not found. Run: sudo ./scripts/instal
 command -v dpkg-deb &>/dev/null || die "dpkg-deb not found. Install: apt-get install dpkg"
 
 log "Installing Tauri CLI..."
-cargo install tauri-cli --version "^1.6" 2>/dev/null || warn "tauri-cli already installed"
+cargo install tauri-cli --version "^1.6" --locked 2>&1 | tail -1 || warn "tauri-cli already up to date"
 
 log "Installing frontend dependencies..."
 pnpm install
 
 log "Building .deb package via Tauri..."
-pnpm exec cargo-tauri build --bundles deb 2>&1 || die "Debian package build failed"
+cargo tauri build --bundles deb 2>&1 || die "Debian package build failed"
 
 DEB_PATH=$(find "$FRONTEND_DIR/src-tauri/target/release/bundle/deb" -name "*.deb" 2>/dev/null | head -1)
 if [[ -z "$DEB_PATH" ]]; then

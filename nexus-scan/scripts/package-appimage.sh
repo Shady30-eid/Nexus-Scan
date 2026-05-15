@@ -18,13 +18,13 @@ command -v pnpm  &>/dev/null || die "pnpm not found"
 command -v cargo &>/dev/null || die "cargo not found. Run: sudo ./scripts/install-deps.sh"
 
 log "Installing Tauri CLI..."
-cargo install tauri-cli --version "^1.6" 2>/dev/null || warn "tauri-cli already installed"
+cargo install tauri-cli --version "^1.6" --locked 2>&1 | tail -1 || warn "tauri-cli already up to date"
 
 log "Installing frontend dependencies..."
 pnpm install
 
 log "Building AppImage via Tauri..."
-pnpm exec cargo-tauri build --bundles appimage 2>&1 || die "AppImage build failed"
+cargo tauri build --bundles appimage 2>&1 || die "AppImage build failed"
 
 APPIMAGE_PATH=$(find "$FRONTEND_DIR/src-tauri/target/release/bundle/appimage" -name "*.AppImage" 2>/dev/null | head -1)
 if [[ -z "$APPIMAGE_PATH" ]]; then
