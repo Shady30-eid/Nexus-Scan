@@ -1,0 +1,96 @@
+{
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build",
+    "devPath": "http://localhost:1420",
+    "distDir": "../dist"
+  },
+  "package": {
+    "productName": "nexus-scan",
+    "version": "1.0.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": false
+      },
+      "dialog": {
+        "all": false
+      },
+      "fs": {
+        "all": false
+      },
+      "http": {
+        "all": false,
+        "request": false
+      },
+      "notification": {
+        "all": false
+      },
+      "window": {
+        "all": false,
+        "close": true,
+        "maximize": true,
+        "minimize": true,
+        "unmaximize": true,
+        "startDragging": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "targets": ["appimage", "deb"],
+      "identifier": "com.nexus-scan.app",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ],
+      "resources": [],
+      "externalBin": [],
+      "copyright": "",
+      "category": "Utility",
+      "shortDescription": "Mobile Forensic and Malware Remediation Platform",
+      "longDescription": "Nexus-Scan is a production-grade mobile forensic platform for detecting and remediating malware on Android and iOS devices connected via USB.",
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.0-dev",
+          "libssl-dev",
+          "adb",
+          "libimobiledevice-utils",
+          "usbutils"
+        ]
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      },
+      "linux": {
+        "fileAssociations": []
+      }
+    },
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' ws://127.0.0.1:9999 http://127.0.0.1:9999; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: asset: https://asset.localhost; font-src 'self' data:"
+    },
+    "updater": {
+      "active": false
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "resizable": true,
+        "title": "Nexus-Scan",
+        "width": 1400,
+        "height": 860,
+        "minWidth": 1100,
+        "minHeight": 700,
+        "center": true,
+        "decorations": true,
+        "transparent": false,
+        "fileDropEnabled": false
+      }
+    ]
+  }
+}

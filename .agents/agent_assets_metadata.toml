@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "adH2zEPDKbxZKAN1oidHx"
+uri = "file://nexus-scan.tar.gz"
+type = "unspecified"
+title = "nexus-scan.tar.gz — Complete Source Code"

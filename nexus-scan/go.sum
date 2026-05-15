@@ -1,0 +1,14 @@
+github.com/google/uuid v1.6.0 h1:NIvaJDMnkiyDNNSeiY7PJ5rMOzUlGkQbCl2TIlKXhY8=
+github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/gorilla/websocket v1.5.1 h1:gmztn0JnHVt9JZquRuzLw3g4wouNVzKL15iLr/zn/QY=
+github.com/gorilla/websocket v1.5.1/go.mod h1:x3kM2JMyaluk02fnUJpQuwD2dCS5NDG2ZHL0uE0tcaY=
+github.com/mattn/go-sqlite3 v1.14.22 h1:2gZY6PC6kBnID23Tichd1K+Z0oS6nE/XwU+Vz/5o4kU=
+github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:SnYAZLeGxEjCLJNi8V2vA0glL/2n3x/jpkd5omZBLxk=
+go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN17afHeum9pgCBCCq0=
+go.uber.org/multierr v1.11.0/go.mod h1:20+QTUc7/+ngT6uybl4LpNJThnmWGJZVtnYvlBqzJ2E=
+go.uber.org/zap v1.27.0 h1:aJMpJfM8Nh+Iqm8B9vh2oK+/7Eb3uyaRSJQlxtFJGOI=
+go.uber.org/zap v1.27.0/go.mod h1:qt7bHsBCBubRz6gznNS8ROC3WNrWh6PcHEAYy1qLMpg=
+golang.org/x/net v0.22.0 h1:9sGLhx7iRIHEiX0oAJ3MRZMUCElJgy7Br1nO+AMN3Tc=
+golang.org/x/net v0.22.0/go.mod h1:JKghWKKOSdJFk/8F4S9YAMr3D1QkCO+3mJGROA/EL9k=
+golang.org/x/sys v0.18.0 h1:DBdB3niSjOA/O0blCZBqDefyWNYveAYMNF1Wum0DYQ4=
+golang.org/x/sys v0.18.0/go.mod h1:/VUhepiaJMbmesa/c6BD2Dq2IbAlbKGdF5DFQV7gRW4=
