@@ -22,6 +22,13 @@ cargo install tauri-cli --version "^1.6" --locked 2>&1 | tail -2 || true
 # ── 2. Install frontend node_modules ────────────────
 log "Installing frontend dependencies..."
 cd "$FRONTEND_DIR"
+
+# Fix permissions on dist/ if a previous sudo run left root-owned files
+if [[ -d "$FRONTEND_DIR/dist" ]]; then
+    log "Cleaning old dist/ folder..."
+    sudo rm -rf "$FRONTEND_DIR/dist" || rm -rf "$FRONTEND_DIR/dist" || true
+fi
+
 # Use --ignore-workspace so pnpm installs only for this package,
 # not for the entire Replit workspace root above it.
 pnpm install --ignore-workspace 2>&1 || \
