@@ -19,10 +19,19 @@ command -v cargo &>/dev/null || die "cargo not found. Run: sudo ./scripts/instal
 install_system_libs() {
     local missing=()
 
-    pkg-config --exists glib-2.0      2>/dev/null || missing+=("libglib2.0-dev")
-    pkg-config --exists gtk+-3.0      2>/dev/null || missing+=("libgtk-3-dev")
-    pkg-config --exists webkit2gtk-4.0 2>/dev/null || missing+=("libwebkit2gtk-4.0-dev")
-    pkg-config --exists openssl       2>/dev/null || missing+=("libssl-dev")
+    pkg-config --exists glib-2.0   2>/dev/null || missing+=("libglib2.0-dev")
+    pkg-config --exists gtk+-3.0   2>/dev/null || missing+=("libgtk-3-dev")
+    pkg-config --exists openssl    2>/dev/null || missing+=("libssl-dev")
+
+    # WebKit: Kali/Debian ≥2023 ships 4.1, older ships 4.0
+    if ! pkg-config --exists webkit2gtk-4.1 2>/dev/null && \
+       ! pkg-config --exists webkit2gtk-4.0 2>/dev/null; then
+        if apt-cache show libwebkit2gtk-4.1-dev &>/dev/null 2>&1; then
+            missing+=("libwebkit2gtk-4.1-dev")
+        else
+            missing+=("libwebkit2gtk-4.0-dev")
+        fi
+    fi
 
     if [[ ${#missing[@]} -gt 0 ]]; then
         warn "Missing system libraries: ${missing[*]}"
