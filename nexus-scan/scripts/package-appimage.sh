@@ -93,6 +93,34 @@ Cflags:
 EOF
     fi
 
+    # ── .so symlinks so the linker can find -lwebkit2gtk-4.0 etc ────────
+    # Tauri Rust crates hardcode -lwebkit2gtk-4.0 in #[link()] attributes.
+    # On Kali/Debian ≥2023 only 4.1 .so files exist, so we create symlinks
+    # with the 4.0 names pointing to the 4.1 binaries.
+    SHIM_LIB_DIR="$ROOT_DIR/.build-shims/lib"
+    mkdir -p "$SHIM_LIB_DIR"
+
+    _make_so_shim() {
+        local pattern="$1"   # e.g. libwebkit2gtk-4.1
+        local soname="$2"    # e.g. libwebkit2gtk-4.0.so
+        local real
+        real=$(ldconfig -p 2>/dev/null | grep "$pattern" | awk '{print $NF}' | head -1)
+        if [[ -n "$real" && ! -e "$SHIM_LIB_DIR/$soname" ]]; then
+            ln -sf "$real" "$SHIM_LIB_DIR/$soname"
+            log "Symlink: $soname → $real"
+        fi
+    }
+
+    _make_so_shim "libwebkit2gtk-4.1"       "libwebkit2gtk-4.0.so"
+    _make_so_shim "libwebkit2gtk-4.1"       "libwebkit2gtk-4.0.so.0"
+    _make_so_shim "libjavascriptcoregtk-4.1" "libjavascriptcoregtk-4.0.so"
+    _make_so_shim "libjavascriptcoregtk-4.1" "libjavascriptcoregtk-4.0.so.0"
+    _make_so_shim "libsoup-3"               "libsoup-2.4.so"
+    _make_so_shim "libsoup-3"               "libsoup-2.4.so.0"
+
+    export RUSTFLAGS="-L $SHIM_LIB_DIR ${RUSTFLAGS:-}"
+    export LIBRARY_PATH="$SHIM_LIB_DIR:${LIBRARY_PATH:-}"
+
     log "System libraries OK."
 }
 
