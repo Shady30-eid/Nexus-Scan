@@ -18,44 +18,48 @@ import sys, struct, zlib
 size = int(sys.argv[1])
 path = sys.argv[2]
 
-def make_png(w, h, pixels_rgba):
+def make_png_rgba(w, h, pixels_rgba):
+    """Build a minimal valid RGBA PNG from a flat list of (R,G,B,A) tuples."""
     def chunk(tag, data):
-        c = zlib.crc32(tag + data) & 0xFFFFFFFF
-        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", c)
-    ihdr = struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)
+        crc = zlib.crc32(tag + data) & 0xFFFFFFFF
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", crc)
+    # color type 6 = RGBA (8 bits per channel)
+    ihdr_data = struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0)
     raw = b""
     for y in range(h):
-        raw += b"\x00"
+        raw += b"\x00"          # filter type None for each row
         for x in range(w):
-            raw += bytes(pixels_rgba[y * w + x][:3])
-    idat = zlib.compress(raw)
-    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", idat) + chunk(b"IEND", b"")
+            r, g, b, a = pixels_rgba[y * w + x]
+            raw += bytes([r, g, b, a])
+    idat_data = zlib.compress(raw, 9)
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", ihdr_data)
+            + chunk(b"IDAT", idat_data)
+            + chunk(b"IEND", b""))
+
+bg     = (10,  10,  20,  255)   # dark navy
+fg     = (0,  255, 200, 255)    # cyan-green
+border = (0,  180, 255, 255)    # blue border
 
 pixels = []
-bg = (10, 10, 20, 255)
-fg = (0, 255, 200, 255)
-border = (0, 180, 255, 255)
-
 for y in range(size):
     for x in range(size):
         nx = x / size
         ny = y / size
-        b = 4 / size
-        # border
-        if nx < b or nx > 1-b or ny < b or ny > 1-b:
+        b  = max(4, size // 32) / size
+        if nx < b or nx > 1 - b or ny < b or ny > 1 - b:
             pixels.append(border)
             continue
-        # letter N
         cx = nx - 0.5
-        cy = ny - 0.5
         in_left  = abs(cx + 0.22) < 0.06
         in_right = abs(cx - 0.22) < 0.06
-        diag = abs((cy + 0.35) - (cx + 0.22) / 0.44 * 0.70) < 0.06
-        in_n = (abs(ny - 0.5) < 0.35) and (in_left or in_right or diag)
+        diag     = abs((ny - 0.15) - (cx + 0.22) / 0.44 * 0.70) < 0.06
+        in_n     = (abs(ny - 0.5) < 0.35) and (in_left or in_right or diag)
         pixels.append(fg if in_n else bg)
 
 with open(path, "wb") as f:
-    f.write(make_png(size, size, pixels))
+    f.write(make_png_rgba(size, size, pixels))
+print(f"[python] wrote RGBA PNG {size}x{size} → {path}")
 PYEOF
 }
 
@@ -65,6 +69,7 @@ make_icon() {
     local out="$2"
 
     if command -v convert &>/dev/null; then
+        # -type TrueColorAlpha forces RGBA output required by Tauri
         convert -size "${size}x${size}" \
             xc:'#0a0a14' \
             -fill '#00ffc8' \
@@ -74,16 +79,11 @@ make_icon() {
             -pointsize $((size * 55 / 100)) \
             -gravity Center \
             -annotate 0 "N" \
-            -stroke '#00b4ff' \
-            -strokewidth $((size/32 + 1)) \
-            -draw "rectangle 0,0 $((size-1)),$((size/16)) \
-                   rectangle 0,$((size - size/16)) $((size-1)),$((size-1)) \
-                   rectangle 0,0 $((size/16)),$((size-1)) \
-                   rectangle $((size - size/16)),0 $((size-1)),$((size-1))" \
-            "$out" 2>/dev/null && return 0
+            -type TrueColorAlpha \
+            PNG32:"$out" 2>/dev/null && return 0
     fi
 
-    # Fallback: pure Python (no deps)
+    # Fallback: pure Python (no deps, writes RGBA PNG directly)
     if command -v python3 &>/dev/null; then
         generate_png_python "$size" "$out" && return 0
     fi
