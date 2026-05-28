@@ -35,6 +35,12 @@ if [[ ! -f "$BIN" ]]; then
             sudo apt-get install -y --no-install-recommends build-essential libsqlite3-dev 2>>"$LOG"
         fi
 
+        # Delete old DB so it gets re-seeded with updated malware signatures
+        if [[ -f "$SCRIPT_DIR/nexus-scan.db" ]]; then
+            log "Removing old database for re-seeding with updated malware signatures..."
+            rm -f "$SCRIPT_DIR/nexus-scan.db"
+        fi
+
         log "Compiling backend (this may take a minute)..."
         # Remove stale go.sum so Go regenerates it fresh
         rm -f "$SCRIPT_DIR/go.sum"
