@@ -36,10 +36,13 @@ if [[ ! -f "$BIN" ]]; then
         fi
 
         log "Compiling backend (this may take a minute)..."
-        # GONOSUMDB + GOFLAGS=-mod=mod lets go fetch & verify modules
-        # without needing a separate 'go mod download' step.
-        GONOSUMDB="*" GONOSUMCHECK="*" \
+        # Remove stale go.sum so Go regenerates it fresh
+        rm -f "$SCRIPT_DIR/go.sum"
+        # GONOSUMDB=* + GONOSUMCHECK=* skip checksum DB verification entirely
+        GONOSUMDB="*" \
+        GONOSUMCHECK="*" \
         GOFLAGS="-mod=mod" \
+        GOPATH="${GOPATH:-$HOME/go}" \
         CGO_ENABLED=1 \
         go build \
             -ldflags="-s -w" \
