@@ -98,6 +98,13 @@ EOF
 
 install_system_libs
 
+# ── 0b. Generate icons if missing ────────────────────
+ICONS_DIR="$FRONTEND_DIR/src-tauri/icons"
+if [[ ! -f "$ICONS_DIR/32x32.png" ]]; then
+    log "Generating app icons..."
+    bash "$SCRIPT_DIR/generate-icons.sh"
+fi
+
 # ── 1. Install Tauri CLI ─────────────────────────────
 log "Installing Tauri CLI..."
 cargo install tauri-cli --version "^1.6" --locked 2>&1 | tail -2 || true
