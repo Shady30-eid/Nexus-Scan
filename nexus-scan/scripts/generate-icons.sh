@@ -2,8 +2,8 @@
 # Generate Tauri icon files using ImageMagick or Python (whichever is available).
 set -euo pipefail
 
-ICONS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../frontend/src-tauri/icons" && pwd)"
-mkdir -p "$ICONS_DIR"
+ICONS_DIR="$(dirname "${BASH_SOURCE[0]}")/../frontend/src-tauri/icons"
+ICONS_DIR="$(mkdir -p "$ICONS_DIR" && cd "$ICONS_DIR" && pwd)"
 
 log()  { echo -e "\033[0;32m[+]\033[0m $*"; }
 warn() { echo -e "\033[1;33m[!]\033[0m $*"; }
