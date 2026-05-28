@@ -15,6 +15,34 @@ export PATH="$PATH:/usr/local/go/bin:$HOME/.cargo/bin"
 command -v pnpm  &>/dev/null || die "pnpm not found. Run: sudo ./scripts/install-deps.sh"
 command -v cargo &>/dev/null || die "cargo not found. Run: sudo ./scripts/install-deps.sh"
 
+# ── 0. Install missing system libraries (GTK/WebKit/GLib) ──
+install_system_libs() {
+    local missing=()
+
+    pkg-config --exists glib-2.0      2>/dev/null || missing+=("libglib2.0-dev")
+    pkg-config --exists gtk+-3.0      2>/dev/null || missing+=("libgtk-3-dev")
+    pkg-config --exists webkit2gtk-4.0 2>/dev/null || missing+=("libwebkit2gtk-4.0-dev")
+    pkg-config --exists openssl       2>/dev/null || missing+=("libssl-dev")
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        warn "Missing system libraries: ${missing[*]}"
+        log "Installing missing libraries (requires sudo)..."
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends \
+            "${missing[@]}" \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            file \
+            2>&1 || die "Failed to install system libraries. Run: sudo apt-get install ${missing[*]}"
+        log "System libraries installed."
+    else
+        log "System libraries OK."
+    fi
+}
+
+install_system_libs
+
 # ── 1. Install Tauri CLI ─────────────────────────────
 log "Installing Tauri CLI..."
 cargo install tauri-cli --version "^1.6" --locked 2>&1 | tail -2 || true
