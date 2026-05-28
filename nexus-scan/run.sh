@@ -78,7 +78,8 @@ LAUNCHED=0
 # Option A: pre-built AppImage
 if [[ -f "$SCRIPT_DIR/nexus-scan.AppImage" ]]; then
     log "Launching desktop app (AppImage)..."
-    "$SCRIPT_DIR/nexus-scan.AppImage" &
+    # APPIMAGE_EXTRACT_AND_RUN=1 avoids FUSE requirement (Kali/Debian ≥2023)
+    APPIMAGE_EXTRACT_AND_RUN=1 "$SCRIPT_DIR/nexus-scan.AppImage" &
     LAUNCHED=1
 
 # Option B: system-installed .deb
