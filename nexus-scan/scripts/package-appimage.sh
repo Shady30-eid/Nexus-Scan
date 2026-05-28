@@ -32,6 +32,13 @@ install_system_libs() {
         fi
     fi
 
+    # libsoup-2.4 (needed by Tauri 1.x WebKit)
+    if ! pkg-config --exists libsoup-2.4 2>/dev/null; then
+        if apt-cache show libsoup2.4-dev &>/dev/null 2>&1; then
+            missing+=("libsoup2.4-dev")
+        fi
+    fi
+
     if [[ ${#missing[@]} -gt 0 ]]; then
         warn "Missing system libraries: ${missing[*]}"
         log "Installing missing libraries (requires sudo)..."
@@ -46,33 +53,44 @@ install_system_libs() {
         log "System libraries installed."
     fi
 
-    # ── webkit2gtk-4.0 shim for systems that only have 4.1 ──────────────
-    # Tauri 1.x looks for webkit2gtk-4.0 via pkg-config.
-    # On Kali/Debian ≥2023 only webkit2gtk-4.1 exists, so we create a
-    # thin .pc shim that satisfies the 4.0 requirement.
+    SHIM_DIR="/usr/local/lib/pkgconfig"
+    sudo mkdir -p "$SHIM_DIR"
+    export PKG_CONFIG_PATH="$SHIM_DIR:${PKG_CONFIG_PATH:-}"
+
+    # ── webkit2gtk-4.0 shim (Kali/Debian ≥2023 only has 4.1) ───────────
     if ! pkg-config --exists webkit2gtk-4.0 2>/dev/null && \
          pkg-config --exists webkit2gtk-4.1 2>/dev/null; then
-        warn "Only webkit2gtk-4.1 found — creating compatibility shim for Tauri..."
-        SHIM_DIR="/usr/local/lib/pkgconfig"
-        sudo mkdir -p "$SHIM_DIR"
-        sudo tee "$SHIM_DIR/webkit2gtk-4.0.pc" > /dev/null << 'SHIMEOF'
+        warn "Creating webkit2gtk-4.0 shim → 4.1"
+        sudo tee "$SHIM_DIR/webkit2gtk-4.0.pc" > /dev/null << 'EOF'
 Name: webkit2gtk-4.0
-Description: WebKit2 GTK+ 4.0 compatibility shim → 4.1
+Description: WebKit2 GTK+ 4.0 (shim → 4.1)
 Version: 2.42.0
 Requires: webkit2gtk-4.1
 Libs:
 Cflags:
-SHIMEOF
-        sudo tee "$SHIM_DIR/javascriptcoregtk-4.0.pc" > /dev/null << 'SHIMEOF'
+EOF
+        sudo tee "$SHIM_DIR/javascriptcoregtk-4.0.pc" > /dev/null << 'EOF'
 Name: javascriptcoregtk-4.0
-Description: JavaScriptCore GTK 4.0 compatibility shim → 4.1
+Description: JavaScriptCore GTK 4.0 (shim → 4.1)
 Version: 2.42.0
 Requires: javascriptcoregtk-4.1
 Libs:
 Cflags:
-SHIMEOF
-        export PKG_CONFIG_PATH="$SHIM_DIR:${PKG_CONFIG_PATH:-}"
-        log "Webkit2gtk shim created at $SHIM_DIR"
+EOF
+    fi
+
+    # ── libsoup-2.4 shim (Kali/Debian ≥2023 only has soup3) ────────────
+    if ! pkg-config --exists libsoup-2.4 2>/dev/null && \
+         pkg-config --exists libsoup-3.0 2>/dev/null; then
+        warn "Creating libsoup-2.4 shim → 3.0"
+        sudo tee "$SHIM_DIR/libsoup-2.4.pc" > /dev/null << 'EOF'
+Name: libsoup-2.4
+Description: libsoup 2.4 (shim → 3.0)
+Version: 2.74.0
+Requires: libsoup-3.0
+Libs:
+Cflags:
+EOF
     fi
 
     log "System libraries OK."
