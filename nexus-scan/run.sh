@@ -28,10 +28,20 @@ if [[ ! -f "$BIN" ]]; then
     else
         mkdir -p "$SCRIPT_DIR/bin"
         cd "$SCRIPT_DIR"
-        log "Downloading Go modules..."
-        go mod download 2>>"$LOG" || { err "go mod download failed. Check $LOG"; }
-        log "Compiling backend..."
-        CGO_ENABLED=1 go build \
+
+        # Make sure gcc + libsqlite3 are present (needed by go-sqlite3)
+        if ! command -v gcc &>/dev/null; then
+            warn "gcc not found — installing build-essential..."
+            sudo apt-get install -y --no-install-recommends build-essential libsqlite3-dev 2>>"$LOG"
+        fi
+
+        log "Compiling backend (this may take a minute)..."
+        # GONOSUMDB + GOFLAGS=-mod=mod lets go fetch & verify modules
+        # without needing a separate 'go mod download' step.
+        GONOSUMDB="*" GONOSUMCHECK="*" \
+        GOFLAGS="-mod=mod" \
+        CGO_ENABLED=1 \
+        go build \
             -ldflags="-s -w" \
             -o "$BIN" \
             ./cmd/nexus-scan/ \
@@ -40,6 +50,8 @@ if [[ ! -f "$BIN" ]]; then
             log "Backend built: $BIN"
         else
             err "Backend build failed. Check $LOG"
+            err "Last error lines:"
+            tail -10 "$LOG" 2>/dev/null | sed 's/^/    /'
         fi
     fi
 fi
