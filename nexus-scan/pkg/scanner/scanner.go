@@ -119,8 +119,11 @@ func (s *Scanner) StartScan(deviceID string) {
                                         continue
                                 }
 
-                                if err := s.db.SaveScanResult(result); err != nil {
-                                        s.log.Error("failed to save scan result", "error", err, "package", j.pkg.PackageName)
+                                // Only persist results that have an identified threat
+                                if result.ThreatName != "" {
+                                        if err := s.db.SaveScanResult(result); err != nil {
+                                                s.log.Error("failed to save scan result", "error", err, "package", j.pkg.PackageName)
+                                        }
                                 }
 
                                 mu.Lock()
@@ -226,10 +229,18 @@ func parseAndroidPackages(ctx context.Context, deviceID string, out []byte) []mo
                 }
                 pkgName := parts[0]
 
+                // Skip packages with no real name (MIUI overlay APKs report "null")
+                if pkgName == "" || pkgName == "null" {
+                        continue
+                }
+
                 installSource := ""
                 for _, p := range parts[1:] {
                         if strings.HasPrefix(p, "installer=") {
-                                installSource = strings.TrimPrefix(p, "installer=")
+                                src := strings.TrimPrefix(p, "installer=")
+                                if src != "null" {
+                                        installSource = src
+                                }
                         }
                 }
 
@@ -417,11 +428,36 @@ func heuristicAnalysis(pkg models.Package) (string, models.SeverityLevel, string
                 }
         }
 
-        // ── No installer + no system path = unverified sideload ──────────────
-        if (pkg.InstallSource == "" || pkg.InstallSource == "null") &&
-                !strings.Contains(path, "/system/") && !strings.Contains(path, "/vendor/") {
-                return "Suspicious.NoInstaller", models.SeverityMedium,
-                        "Package was not installed via Google Play or a known app store."
+        // ── Apps in user-space without a recognised official store ───────────
+        if !strings.Contains(path, "/system/") && !strings.Contains(path, "/vendor/") &&
+                !strings.Contains(path, "/priv-app/") {
+
+                trustedInstallers := []string{
+                        "com.android.vending",       // Google Play
+                        "com.amazon.venezia",         // Amazon Appstore
+                        "com.sec.android.app.samsungapps", // Galaxy Store
+                        "com.huawei.appmarket",       // HUAWEI AppGallery
+                        "com.android.packageinstaller", // Stock installer (APKs)
+                }
+                isTrusted := false
+                for _, ti := range trustedInstallers {
+                        if pkg.InstallSource == ti {
+                                isTrusted = true
+                                break
+                        }
+                }
+
+                if !isTrusted && pkg.InstallSource != "" {
+                        // Installed by an unofficial/OEM store (e.g. Xiaomi GetApps)
+                        return "Suspicious.UnofficialStore", models.SeverityMedium,
+                                "App installed via unofficial store (" + pkg.InstallSource + ") — unverified source."
+                }
+
+                if !isTrusted && pkg.InstallSource == "" {
+                        // Sideloaded via ADB or manual APK install
+                        return "Suspicious.Sideloaded", models.SeverityHigh,
+                                "App has no install source record — likely sideloaded via ADB or manual APK."
+                }
         }
 
         return "", "", ""

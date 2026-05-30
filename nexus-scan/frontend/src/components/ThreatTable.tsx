@@ -129,7 +129,7 @@ function ThreatRow({ threat, onPurge }: { threat: ScanResult; onPurge: () => voi
           <SeverityBadge severity={threat.severity} />
         </td>
         <td style={{ ...s.td, color: "var(--text-primary)", fontWeight: "bold" }}>
-          {threat.threat_name || "Suspicious.Package"}
+          {threat.threat_name}
         </td>
         <td style={{ ...s.td, color: "var(--text-secondary)", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {threat.package_name}

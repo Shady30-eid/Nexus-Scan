@@ -16,15 +16,27 @@ err()  { echo -e "${RED}[x]${NC} $*"; }
 export PATH="$PATH:/usr/local/go/bin:$HOME/.cargo/bin"
 source ~/.cargo/env 2>/dev/null || true
 
-# ── 1. Build Go backend if binary missing ────────────
-if [[ ! -f "$BIN" ]]; then
-    log "Backend binary not found — building..."
+# ── 1. Build Go backend (always rebuild if source changed) ─────────────
+# Compute a hash of Go source files to detect changes
+_needs_rebuild=0
+_HASH_FILE="$SCRIPT_DIR/bin/.src_hash"
+_CURRENT_HASH=""
+if command -v sha256sum &>/dev/null; then
+    _CURRENT_HASH=$(find "$SCRIPT_DIR" -name "*.go" ! -path "*/vendor/*" | sort | xargs sha256sum 2>/dev/null | sha256sum | awk '{print $1}')
+fi
 
+if [[ ! -f "$BIN" ]]; then
+    _needs_rebuild=1
+    log "Backend binary not found — building..."
+elif [[ -n "$_CURRENT_HASH" && -f "$_HASH_FILE" && "$_CURRENT_HASH" != "$(cat "$_HASH_FILE")" ]]; then
+    _needs_rebuild=1
+    log "Go source changed — rebuilding backend..."
+fi
+
+if [[ $_needs_rebuild -eq 1 ]]; then
     if ! command -v go &>/dev/null; then
         err "Go not installed. Run:  sudo ./scripts/install-deps.sh"
         err "Or download Go from:   https://go.dev/dl/"
-        # Still try to launch the GUI — backend is needed for real scans
-        # but the window will open (just WebSocket will fail to connect)
     else
         mkdir -p "$SCRIPT_DIR/bin"
         cd "$SCRIPT_DIR"
@@ -37,7 +49,7 @@ if [[ ! -f "$BIN" ]]; then
 
         # Delete old DB so it gets re-seeded with updated malware signatures
         if [[ -f "$SCRIPT_DIR/nexus-scan.db" ]]; then
-            log "Removing old database for re-seeding with updated malware signatures..."
+            log "Removing old database — will re-seed with updated malware signatures..."
             rm -f "$SCRIPT_DIR/nexus-scan.db"
         fi
 
@@ -57,6 +69,8 @@ if [[ ! -f "$BIN" ]]; then
             2>>"$LOG"
         if [[ $? -eq 0 ]]; then
             log "Backend built: $BIN"
+            # Save source hash so next run skips rebuild if unchanged
+            [[ -n "$_CURRENT_HASH" ]] && echo "$_CURRENT_HASH" > "$_HASH_FILE"
         else
             err "Backend build failed. Check $LOG"
             err "Last error lines:"
